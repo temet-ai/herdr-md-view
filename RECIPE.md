@@ -1,6 +1,6 @@
 # md-view
 
-A markdown panel that opens beside a terminal when you Ctrl-click a `.md` path in it. It renders the file, lets you edit it with auto-save, and sends any block, list item or selected lines back to that terminal as a quote with the file path and line numbers.
+A configurable markdown viewer and editor for Herdr. Ctrl-click a `.md` path in a terminal and it opens in a panel beside it, parsed with markdown-it and drawn with Herdr's own text and editor views.
 
 ![md-view](preview.png)
 

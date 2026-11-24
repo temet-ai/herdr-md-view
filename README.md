@@ -1,6 +1,6 @@
 # md-view
 
-A markdown panel for the [Herdr app](https://herdr.dev). Ctrl-click a `.md` path in any terminal (Cmd-click on macOS) and the file opens, rendered, in a panel beside that terminal. You can edit it there, and send any paragraph, list item or selection back to the terminal as a quote with its line numbers, which is handy for pointing a coding agent at part of a plan or a report.
+A configurable markdown viewer and editor for the [Herdr app](https://herdr.dev). Ctrl-click a `.md` path in a terminal (Cmd-click on macOS) and it opens in a panel beside it, parsed with markdown-it and drawn with Herdr's own text and editor views. A paragraph or list item can be sent back to the terminal as a quote with its line numbers.
 
 ![md-view beside a terminal](preview.png)
 
