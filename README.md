@@ -4,6 +4,8 @@ A markdown panel for the [Herdr app](https://herdr.dev). Ctrl-click a `.md` path
 
 ![md-view beside a terminal](preview.png)
 
+![md-view at work: a Ctrl-click opens the file, the outline jumps to a section, the send arrow quotes a callout into the terminal, a line is typed and saved in Edit, and an outside change is marked](media/md-view-demo.gif)
+
 ## Install
 
 You need the Herdr app 0.1.17 or later, which added link handlers for mods.
