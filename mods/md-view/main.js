@@ -12,7 +12,7 @@ import { markdownFor, plainMap } from "./copy.js";
 import { expandLinks, headingAnchors, referenceDefs, resolveLink } from "./links.js";
 import { noteBox, openNote, reviewBar, toggleTask } from "./review.js";
 import { frontRows, quote, taskCount } from "./review-core.js";
-import { blockAtLine, closeFind, findBar, goHistory, markChanged, nextChanged, onKey, openFind, openPicker, outline, picker, remember, scrollTo, updateMatches } from "./features.js";
+import { blockAtLine, here, closeFind, findBar, goHistory, markChanged, nextChanged, onKey, openFind, openPicker, outline, picker, remember, scrollTo, updateMatches } from "./features.js";
 
 const dirOf = (p) => p.slice(0, p.lastIndexOf("/")) || "/";
 const nameOf = (p) => p.slice(p.lastIndexOf("/") + 1);
@@ -154,8 +154,8 @@ export default class MdView extends View {
     if (want.pane) this.source = { pane: want.pane, terminal: want.terminal ?? null, machine: want.machine ?? null };
     if (want.line) this.pendingLine = want.line;
     if (want.anchor) this.pendingAnchor = want.anchor;
-    if (!want.fromHistory) remember(this, want.path);
-    if (want.path === this.file) { if (this.pendingLine || this.pendingAnchor) this.jumpPending(cx); cx.notify(); return; }
+    if (!want.fromHistory) remember(this, want.path, 0);
+    if (want.path === this.file) { if (this.pendingLine || this.pendingAnchor || this.pendingBlock != null) this.jumpPending(cx); cx.notify(); return; }
     this.changed = []; this.cursor = 0; this.showPicker = false; this.review = []; this.noteFor = null;
     this.file = want.path;
     this.draft = null; this.conflict = false; this.error = null; this.base = ""; this.saveState = null;
@@ -191,23 +191,37 @@ export default class MdView extends View {
         // Something else rewrote the file (an agent, say): mark what changed.
         if (fromDisk && this.mode === "view") markChanged(this, oldBlocks);
         if (this.showFind) updateMatches(this);
-        if (this.pendingLine || this.pendingAnchor) this.jumpPending(cx);
+        if (this.pendingLine || this.pendingAnchor || this.pendingBlock != null) this.jumpPending(cx);
         cx.notify();
         try { await watchFolder(dirOf(file)); } catch { return; }
       }
     });
   }
 
-  jumpPending(cx) {
-    if (!this.parsed.blocks.length) return;
+  // The block a pending heading or line points at, or null; clears them.
+  jumpTarget() {
     const line = this.pendingLine, anchor = this.pendingAnchor;
     this.pendingLine = null; this.pendingAnchor = null;
     if (anchor) {
       const want = anchor.toLowerCase();
       const hit = this.anchors().find((a) => a.slug === want || a.slug === want.replace(/\s+/g, "-"));
-      if (hit) { scrollTo(this, hit.index, cx); return; }
+      if (hit) return hit.index;
     }
-    if (line) scrollTo(this, blockAtLine(this, line), cx);
+    return line ? blockAtLine(this, line) : null;
+  }
+
+  jumpPending(cx) {
+    if (!this.parsed.blocks.length) return;
+    if (this.pendingBlock != null) {
+      const b = this.pendingBlock; this.pendingBlock = null;
+      scrollTo(this, Math.min(b, this.parsed.blocks.length - 1), cx, false);
+      return;
+    }
+    const target = this.jumpTarget();
+    if (target === null) return;
+    const cur = this.history?.[this.histPos];
+    if (cur && cur.path === this.file) cur.block = target;
+    scrollTo(this, target, cx);
   }
 
   // The headings' anchors, as GitHub would name them.
@@ -387,7 +401,14 @@ export default class MdView extends View {
   link(url, cx) {
     const to = resolveLink(url, dirOf(this.file));
     if (to.kind === "url") { cx.open_url(to.url); return; }
-    if (to.kind === "here") { this.pendingAnchor = to.anchor ?? null; this.pendingLine = to.line ?? null; this.jumpPending(cx); return; }
+    if (to.kind === "here") {
+      this.pendingAnchor = to.anchor ?? null; this.pendingLine = to.line ?? null;
+      const target = this.jumpTarget();
+      if (target === null) return;
+      remember(this, this.file, target);
+      scrollTo(this, target, cx);
+      return;
+    }
     let path = to.path;
     if (path.startsWith("~/")) path = `${home()}${path.slice(1)}`;
     if (!isMarkdown(path)) { cx.open_url(`file://${path}`); return; }
@@ -668,8 +689,8 @@ export default class MdView extends View {
       .tooltip(tip).on_click((_e, cx) => goHistory(this, step, cx)).child(label);
     const header = h_flex().w_full().px(10).py(6).gap(8).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .when(this.history.length > 1, (e) => e.child(h_flex().flex_none()
-        .child(arrow("back", "‹", "Back (Alt+Left)", this.histPos > 0, -1))
-        .child(arrow("fwd", "›", "Forward (Alt+Right)", this.histPos < this.history.length - 1, 1))))
+        .child(arrow("back", "‹", "Back (Alt+Left, Backspace, mouse back button)", this.histPos > 0, -1))
+        .child(arrow("fwd", "›", "Forward (Alt+Right, Shift+Backspace, mouse forward button)", this.histPos < this.history.length - 1, 1))))
       .child(v_flex().flex_1().min_w(0)
         .child(h_flex().gap(4).items_center().min_w(0)
           .child(div().text_size(13).font_semibold().text_color(t.foreground).truncate().child(file ? `${nameOf(file)}${dirty ? " ●" : ""}` : "md-view"))
@@ -739,6 +760,8 @@ export default class MdView extends View {
     return v_flex().id("root").size_full().when(!!this.keys, (e) => e.track_focus(this.keys)).bg(t.surface).text_color(t.foreground)
       .on_size_change((size, cx) => { if (Math.abs(size.width - this.width) > 4) { this.width = size.width; cx.notify(); } })
       .on_key_down((e, cx) => onKey(this, e, cx))
+      .on_mouse_down("back", (_e, cx) => goHistory(this, -1, cx))
+      .on_mouse_down("forward", (_e, cx) => goHistory(this, 1, cx))
       .on_mouse_down("left", () => { if (this.mode === "view" && !this.showFind) this.keys?.focus(); })
       .child(header)
       .when(!!this.showFind && !this.showSettings, (e) => e.child(findBar(this, t)))

@@ -11,3 +11,4 @@ cd "$tmp" && MDHOME="$tmp/home" node settings.test.mjs
 node "$here/copy.test.mjs"
 node "$here/review.test.mjs"
 node "$here/links.test.mjs"
+node "$here/history.test.mjs"

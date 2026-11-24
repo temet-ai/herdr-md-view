@@ -43,10 +43,10 @@ To install by hand, copy `mods/md-view` into `~/.config/herdr-app/mods/` and run
 - **Outline:** the outline button (or `o`) lists the headings beside the page; click one to jump to it.
 - **Find:** the search button, `/` or Ctrl+F. Matching blocks are highlighted; Enter and the arrows step through them.
 - **What changed:** when another program (an agent, say) rewrites the open file, the changed blocks get an accent bar and the header shows "N changed"; click it, or press `c`, to step through them.
-- **Back and forward:** after following links between files, the ‹ › arrows, Alt+Left and Alt+Right, or `[` and `]`.
+- **Back and forward:** Back returns to the place you left, not just the file: following a link, a `#heading` link in the same file or an outline entry all count as a move. Use the ‹ › arrows in the header, the mouse's back and forward side buttons, Alt+Left and Alt+Right (Cmd+[ and Cmd+] on macOS), or, while reading, `[` and `]` or Backspace and Shift+Backspace.
 - **Files the terminal mentioned:** the terminal button (or `f`) lists the markdown files named in the terminal's recent output, newest first. It finds bare names like `plan.md` too, which Herdr doesn't make clickable.
 
-Keys while reading (click the page first): `j`/`k` or the arrows move a block, `g`/`G` go to the top or bottom, `o` outline, `/` find, `c` next change, `f` files from the terminal, `e` edit, `y` copy the file, Esc closes whatever is open.
+Keys while reading (click the page first): `j`/`k` or the arrows move a block, `g`/`G` go to the top or bottom, `o` outline, `/` find, `c` next change, `[`/`]` or Backspace/Shift+Backspace back and forward, `f` files from the terminal, `e` edit, `y` copy the file, Esc closes whatever is open.
 - **Settings:** the Settings button in the panel header opens a settings page. Every change saves at once and applies to all open md-view panels.
 
 To open a file without a click:

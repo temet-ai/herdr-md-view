@@ -4,6 +4,9 @@
 import { div, svg } from "gpui-kit";
 import { v_flex, h_flex, Input, InputState } from "gpui-base";
 import { exec, hc, home, panes, readTextFile } from "herdr";
+import { here, remember } from "./history.js";
+
+export { here, remember };
 
 const nameOf = (p) => p.slice(p.lastIndexOf("/") + 1);
 
@@ -32,18 +35,20 @@ export function blockAtLine(view, line) {
 }
 
 // ---------- history ----------
-export function remember(view, path) {
-  view.history ??= []; view.histPos ??= -1;
-  if (view.history[view.histPos] === path) return;
-  view.history = view.history.slice(0, view.histPos + 1).concat(path).slice(-50);
-  view.histPos = view.history.length - 1;
-}
+// Each entry is a place: a file and the block you were at. Following a link records where
+// you left (the block holding the link) and where you landed, so Back returns to that spot,
+// in the same file or another.
 
 export function goHistory(view, step, cx) {
   const pos = view.histPos + step;
   if (pos < 0 || pos >= view.history.length || view.dirty()) return;
+  const cur = view.history[view.histPos];
+  if (cur && cur.path === view.file) cur.block = here(view);
   view.histPos = pos;
-  view.open({ path: view.history[pos], at: view.at, fromHistory: true }, cx);
+  const to = view.history[pos];
+  if (to.path === view.file) { scrollTo(view, to.block, cx, false); return; }
+  view.pendingBlock = to.block;
+  view.open({ path: to.path, at: view.at, fromHistory: true }, cx);
 }
 
 // ---------- sections an agent changed ----------
@@ -122,7 +127,7 @@ export function outline(view, t) {
       .text_size(b.level <= 2 ? 13 : 12).truncate()
       .text_color(i === active ? t.foreground : t.muted).when(i === active, (s) => s.bg(t.selected ?? t.hover))
       .hover((s) => s.bg(t.hover).text_color(t.foreground))
-      .on_click((_e, cx) => scrollTo(view, i, cx))
+      .on_click((_e, cx) => { remember(view, view.file, i); scrollTo(view, i, cx); })
       .child(b.inline.replace(/[*_`]/g, ""))));
 }
 
@@ -204,8 +209,10 @@ export function onKey(view, e, cx) {
   }
   if (k === "ctrl-f" || k === "cmd-f") { openFind(view, cx); return; }
   if ((k === "ctrl-c" || k === "cmd-c") && view.mode === "view" && !view.showSettings && !view.showFind && !view.noteFor) { view.copySelectionAsMarkdown(cx); return; }
-  if (k === "alt-left") { goHistory(view, -1, cx); return; }
-  if (k === "alt-right") { goHistory(view, 1, cx); return; }
+  // Back and forward: Alt+arrows everywhere, Cmd+[ and Cmd+] as in macOS browsers,
+  // and the keyboard's own Back and Forward keys.
+  if (k === "alt-left" || k === "cmd-[" || k === "browserback" || k === "back") { goHistory(view, -1, cx); return; }
+  if (k === "alt-right" || k === "cmd-]" || k === "browserforward" || k === "forward") { goHistory(view, 1, cx); return; }
   // Single letters only while reading, not while typing in the editor or the find box.
   if (view.mode !== "view" || view.showSettings || view.showFind || view.noteFor) return;
   const n = view.parsed.blocks.length, at = view.cursor ?? 0;
@@ -223,6 +230,8 @@ export function onKey(view, e, cx) {
     y: () => view.copyMarkdown(view.text() ?? "", "Copied the file", cx),
     e: () => { if (view.config.allow_edit !== false) view.setMode("edit", cx); },
     "[": () => goHistory(view, -1, cx),
+    backspace: () => goHistory(view, -1, cx),
+    "shift-backspace": () => goHistory(view, 1, cx),
     "]": () => goHistory(view, 1, cx),
   };
   keys[k]?.();
