@@ -9,7 +9,7 @@ A markdown panel for the [Herdr app](https://herdr.dev). Ctrl-click a `.md` path
 You need the Herdr app 0.1.17 or later, which added link handlers for mods.
 
 ```sh
-git clone https://github.com/<owner>/herdr-md-view
+git clone https://github.com/temet-ai/herdr-md-view
 cd herdr-md-view
 ./install.sh                 # the mod, plus the Mermaid and maths renderers
 ./install.sh --no-renderers  # the mod only
