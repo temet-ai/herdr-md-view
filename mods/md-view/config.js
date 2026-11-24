@@ -79,14 +79,17 @@ export async function saveConfig(config) {
   setShared("md-view.config-rev", Date.now()); // every open panel reloads the file
   const mod = `${appHome()}/mods/md-view/mod.json`;
   const modText = await readTextFile(mod);
-  const want = modJson(config.file_types);
+  let base = {};
+  try { base = JSON.parse(modText ?? "{}"); } catch { base = {}; }
+  const want = modJson(config.file_types, base);
   if (modText !== null && modText !== want) await writeTextFile(mod, want, modText);
 }
 
-export function modJson(types) {
+// Keeps the rest of mod.json (its version above all) and replaces only the link handler.
+export function modJson(types, base = {}) {
   const exts = (types?.length ? types : DEFAULTS.file_types).map((t) => t.replace(/[^a-z0-9]/gi, "")).filter(Boolean);
   const pattern = `(?i)\\.(${exts.join("|")})$`;
-  return `${JSON.stringify({ place: "none", link_handlers: [{ kind: "file", pattern }] }, null, 2)}\n`;
+  return `${JSON.stringify({ ...base, place: base.place ?? "none", link_handlers: [{ kind: "file", pattern }] }, null, 2)}\n`;
 }
 
 export function merged(base, over) { return merge(base, over); }

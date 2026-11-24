@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# The release archive: the committed mod, the installer, licences, README, RECIPE,
+# CHANGELOG and the sample, as dist/md-view-<version>.zip with dist/checksums.txt.
+# Built from git, so local files (gpui-kit.d.ts, tools/node_modules, media-wip) never
+# get in.
+#
+#   scripts/package [ref]   # default HEAD
+set -euo pipefail
+
+root="$(cd "$(dirname "$0")/.." && pwd)"
+ref="${1:-HEAD}"
+version="$(git -C "$root" show "$ref:mods/md-view/mod.json" | jq -r .version)"
+mkdir -p "$root/dist"
+git -C "$root" archive --format=zip --prefix="md-view-$version/" -o "$root/dist/md-view-$version.zip" "$ref" \
+  mods/md-view install.sh LICENSE THIRD-PARTY-NOTICES.md README.md RECIPE.md CHANGELOG.md samples
+sha="$(command -v sha256sum || echo "shasum -a 256")"   # shasum on the Mac
+(cd "$root/dist" && $sha "md-view-$version.zip" > checksums.txt)
+echo "$root/dist/md-view-$version.zip"

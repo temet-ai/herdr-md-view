@@ -17,6 +17,8 @@ cd herdr-md-view
 ./install.sh --no-renderers  # the mod only
 ```
 
+Or download `md-view-<version>.zip` from the [latest release](https://github.com/temet-ai/herdr-md-view/releases/latest), unzip it and run `./install.sh` in its folder. What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
+
 `install.sh` copies `mods/md-view` into `~/.config/herdr-app/mods/` (or `$HERDR_APP_HOME`), then runs `npm install` in `mods/md-view/tools`. The renderers need Node.js 18 or later; Mermaid also needs a Chromium-based browser (Chrome, Chromium, Edge or Brave), and the installer uses the one you have instead of downloading another. The renderer packages take about 500 MB. Without them, Mermaid and maths blocks show their source.
 
 Herdr adds md-view to your layout's `link_handlers` the first time it sees the mod, on a layout of your own. The shipped `main` layout is read-only: clone it first and switch to the clone.
@@ -119,3 +121,7 @@ cd build && npm install && npm run build
 ## Licence
 
 MIT; see [LICENSE](LICENSE). The bundled parser's licences are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Releasing
+
+`mods/md-view/mod.json`'s `version` is the one version. Move `## Unreleased` in CHANGELOG.md to `## <version> (<date>)`, set the same version in `mod.json`, commit, and push the tag `v<version>`. `.github/workflows/release.yml` then checks the tag against `mod.json`, runs the tests, packages with `scripts/package` and publishes the release with the notes from `scripts/release-notes`.
