@@ -15,6 +15,8 @@ Sections use these headings, leaving out any with nothing in them: **New**,
 - **Reviews.** "Add to review" collects notes on several blocks; "Send review" sends them as one message, in file order.
 - **Tick task boxes.** Clicking a `- [ ]` box ticks it in the file. The header counts them, such as `3 of 7 done`.
 - **Front matter as a table** of its keys and values, instead of raw text.
+- **Links to headings and lines.** `#heading` scrolls to that heading in the file, `other.md#heading` opens the file there, and `#L42` or `other.md:42` go to a line.
+- **Reference and wiki links.** `[text][name]`, `[name][]` and `[name]` links with a definition in the file, and `[[page]]`, `[[page|text]]` and `[[page#heading]]`, are followed like any other link.
 
 ## 0.1.0 (2026-11-24)
 

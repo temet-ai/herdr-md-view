@@ -3,12 +3,13 @@
 // list item that quotes its lines back into that terminal.
 import { View, div, image, svg, PathBuilder } from "gpui-kit";
 import { v_flex, h_flex, TextView, Editor, EditorState, ScrollHandle } from "gpui-base";
-import { checking, exec, hc, notify, window as window_, panes, props, readTextFile, run, setShared, settings, shared, theme, watchFolder, writeTextFile } from "herdr";
+import { checking, exec, hc, home, notify, window as window_, panes, props, readTextFile, run, setShared, settings, shared, theme, watchFolder, writeTextFile } from "herdr";
 import { parseBlocks, parseChart, tidyInline } from "./blocks.js";
 import { configPath, loadConfig, resolveFont, saveConfig, starterConfig, DEFAULTS } from "./config.js";
 import { settingsPage } from "./settings.js";
 import { cacheImage, renderDiagram } from "./media.js";
-import { markdownFor } from "./copy.js";
+import { markdownFor, plainMap } from "./copy.js";
+import { expandLinks, headingAnchors, referenceDefs, resolveLink } from "./links.js";
 import { noteBox, openNote, reviewBar, toggleTask } from "./review.js";
 import { frontRows, quote, taskCount } from "./review-core.js";
 import { blockAtLine, closeFind, findBar, goHistory, markChanged, nextChanged, onKey, openFind, openPicker, outline, picker, remember, scrollTo, updateMatches } from "./features.js";
@@ -152,8 +153,9 @@ export default class MdView extends View {
     this.at = want.at;
     if (want.pane) this.source = { pane: want.pane, terminal: want.terminal ?? null, machine: want.machine ?? null };
     if (want.line) this.pendingLine = want.line;
+    if (want.anchor) this.pendingAnchor = want.anchor;
     if (!want.fromHistory) remember(this, want.path);
-    if (want.path === this.file) { if (this.pendingLine) this.jumpPending(cx); cx.notify(); return; }
+    if (want.path === this.file) { if (this.pendingLine || this.pendingAnchor) this.jumpPending(cx); cx.notify(); return; }
     this.changed = []; this.cursor = 0; this.showPicker = false; this.review = []; this.noteFor = null;
     this.file = want.path;
     this.draft = null; this.conflict = false; this.error = null; this.base = ""; this.saveState = null;
@@ -189,7 +191,7 @@ export default class MdView extends View {
         // Something else rewrote the file (an agent, say): mark what changed.
         if (fromDisk && this.mode === "view") markChanged(this, oldBlocks);
         if (this.showFind) updateMatches(this);
-        if (this.pendingLine) this.jumpPending(cx);
+        if (this.pendingLine || this.pendingAnchor) this.jumpPending(cx);
         cx.notify();
         try { await watchFolder(dirOf(file)); } catch { return; }
       }
@@ -198,9 +200,24 @@ export default class MdView extends View {
 
   jumpPending(cx) {
     if (!this.parsed.blocks.length) return;
-    const line = this.pendingLine;
-    this.pendingLine = null;
-    scrollTo(this, blockAtLine(this, line), cx);
+    const line = this.pendingLine, anchor = this.pendingAnchor;
+    this.pendingLine = null; this.pendingAnchor = null;
+    if (anchor) {
+      const want = anchor.toLowerCase();
+      const hit = this.anchors().find((a) => a.slug === want || a.slug === want.replace(/\s+/g, "-"));
+      if (hit) { scrollTo(this, hit.index, cx); return; }
+    }
+    if (line) scrollTo(this, blockAtLine(this, line), cx);
+  }
+
+  // The headings' anchors, as GitHub would name them.
+  anchors() {
+    if (this.parsed.anchorsFor !== this.parsed.text) {
+      const heads = this.parsed.blocks.map((b, index) => (b.kind === "heading" ? { index, text: plainMap(b.inline).plain } : null)).filter(Boolean);
+      this.parsed.anchors = headingAnchors(heads);
+      this.parsed.anchorsFor = this.parsed.text;
+    }
+    return this.parsed.anchors;
   }
 
   openEditor(cx) {
@@ -365,13 +382,16 @@ export default class MdView extends View {
     this.send(first, first + text.split("\n").length, text, cx);
   }
 
+  // Where a link in the page goes: a heading or line here, another markdown file (at its
+  // heading or line), or the system's handler for anything else.
   link(url, cx) {
-    if (url.startsWith("#")) return;
-    if (/^[a-z][a-z0-9+.-]*:/i.test(url) && !url.startsWith("file:")) { cx.open_url(url); return; }
-    let path = decodeURI(url.replace(/^file:\/\//, "").replace(/#.*$/, ""));
-    if (!path.startsWith("/") && !/^[A-Za-z]:/.test(path)) path = `${dirOf(this.file)}/${path}`;
+    const to = resolveLink(url, dirOf(this.file));
+    if (to.kind === "url") { cx.open_url(to.url); return; }
+    if (to.kind === "here") { this.pendingAnchor = to.anchor ?? null; this.pendingLine = to.line ?? null; this.jumpPending(cx); return; }
+    let path = to.path;
+    if (path.startsWith("~/")) path = `${home()}${path.slice(1)}`;
     if (!isMarkdown(path)) { cx.open_url(`file://${path}`); return; }
-    const want = { path, at: Date.now(), ...(this.source ?? {}) };
+    const want = { path, at: Date.now(), ...(this.source ?? {}), ...(to.line ? { line: to.line } : {}), ...(to.anchor ? { anchor: to.anchor } : {}) };
     if (this.key()) setShared(this.key(), want);
     else if (!this.dirty()) this.open(want, cx);
   }
@@ -384,7 +404,7 @@ export default class MdView extends View {
     const blocks = this.file && !isMarkdown(this.file)
       ? [{ kind: "code", lang: extOf(this.file), code: text.replace(/\n$/, ""), start: 0, end: text.split("\n").length, source: text }]
       : parseBlocks(text);
-    this.parsed = { text, blocks };
+    this.parsed = { text, blocks, refs: referenceDefs(text) };
     const used = new Set();
     for (const b of blocks) {
       if (b.kind === "code") this.codeState(b.lang, b.code, used);
@@ -436,7 +456,7 @@ export default class MdView extends View {
   // ---------- rendering ----------
   inline(id, s, t, size = this.config.text_size, color = t.foreground) {
     return div().text_size(size).text_color(color).min_w(0).child(
-      TextView.markdown(id, tidyInline(s)).selectable(true).on_link_click((url, cx) => this.link(url, cx)));
+      TextView.markdown(id, tidyInline(expandLinks(s, this.parsed.refs))).selectable(true).on_link_click((url, cx) => this.link(url, cx)));
   }
 
   // One row: a send button in the gutter, shown on hover, and the content.
