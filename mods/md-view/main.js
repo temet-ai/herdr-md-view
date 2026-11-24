@@ -473,14 +473,15 @@ export default class MdView extends View {
       case "code": {
         const lines = b.code.split("\n").length;
         const state = this.codeStates.get(`${b.lang}\u0000${b.code}`);
-        const lineH = Math.round(this.config.text_size * 1.45);
+        // Generous, so the editor inside never has to scroll (it would catch the wheel).
+        const lineH = Math.round(Math.max(11, this.config.text_size - 1) * 1.75);
         const el = v_flex().my(6).rounded(6).border(1).border_color(t.border).bg(t.background).overflow_hidden()
           .child(h_flex().px(10).py(3).justify_between().bg(t.raised)
             .child(div().text_size(11).text_color(t.dim).child(b.lang || "text"))
             .child(div().id(`copy-${id}`).text_size(11).text_color(t.dim).cursor_pointer().hover((s) => s.text_color(t.foreground))
               .on_click((_e, cx) => cx.write_to_clipboard(b.code)).child("Copy")))
           .child(state
-            ? div().h(Math.min(lines, 60) * lineH + 12).px(6).py(6).child(Editor.new(state))
+            ? div().h(lines * lineH + 16).px(6).py(6).child(Editor.new(state))
             : div().px(10).py(8).text_size(13).font_family(settings().font_family).child(b.code));
         return this.row(id, b.start, b.end, b.source, el, t);
       }
