@@ -9,6 +9,8 @@ Sections use these headings, leaving out any with nothing in them: **New**,
 
 ## Unreleased
 
+## 0.2.0 (2026-11-24)
+
 **New**
 
 - **Send with a note.** The ✎ beside a hovered block opens a box: Enter sends the quote and your note to the terminal together.
