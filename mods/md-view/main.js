@@ -8,6 +8,7 @@ import { parseBlocks, parseChart, tidyInline } from "./blocks.js";
 import { configPath, loadConfig, resolveFont, saveConfig, starterConfig, DEFAULTS } from "./config.js";
 import { settingsPage } from "./settings.js";
 import { cacheImage, renderDiagram } from "./media.js";
+import { markdownFor } from "./copy.js";
 import { blockAtLine, closeFind, findBar, goHistory, markChanged, nextChanged, onKey, openFind, openPicker, outline, picker, remember, scrollTo, updateMatches } from "./features.js";
 
 const dirOf = (p) => p.slice(0, p.lastIndexOf("/")) || "/";
@@ -101,6 +102,28 @@ export default class MdView extends View {
     return this.tab ? `md-view.file.${this.tab}` : null;
   }
   text() { return this.draft ?? this.base; }
+
+  // Puts markdown on the clipboard and says so in the header for a moment.
+  copyMarkdown(md, label, cx) {
+    cx.write_to_clipboard(md);
+    this.copyMsg = label; cx.notify();
+    cx.timer.after(1500, (cx) => { this.copyMsg = null; cx.notify(); });
+  }
+
+  // After a Ctrl+C on the rendered page the text view has put plain text on the clipboard;
+  // swap it for the markdown it came from.
+  copySelectionAsMarkdown(cx) {
+    const before = cx.read_from_clipboard();
+    cx.timer.after(80, (cx) => {
+      const copied = cx.read_from_clipboard();
+      if (!copied || copied === before) return;
+      const src = this.text() ?? "";
+      const line = this.parsed?.blocks?.[this.cursor ?? 0]?.start ?? 0;
+      const near = src.split("\n").slice(0, line).join("\n").length;
+      const md = markdownFor(src, copied, near);
+      if (md && md !== copied) this.copyMarkdown(md, "Copied as markdown", cx);
+    });
+  }
   dirty() { return this.draft !== null && this.draft !== this.base; }
   myPane() { return panes().find((p) => p.mod === "md-view" && (this.tab ? p.tab === this.tab : p.focused))?.pane; }
 
@@ -418,7 +441,11 @@ export default class MdView extends View {
         .text_color(t.dim).hover((s) => s.text_color(t.accent))
         .on_click((_e, cx) => this.send(start, end, text, cx))
         .when(on, (e) => e.child(svg("mods/md-view/send.svg").size(14))))
-      .child(div().flex_1().min_w(0).child(content));
+      .child(div().flex_1().min_w(0).child(content))
+      .child(div().id(`copy-${id}`).w(22).h(22).flex_none().flex().items_center().justify_center().cursor_pointer()
+        .text_color(t.dim).hover((s) => s.text_color(t.accent)).tooltip("Copy this block's markdown")
+        .on_click((_e, cx) => this.copyMarkdown(text, "Copied", cx))
+        .when(on, (e) => e.child(svg("mods/md-view/copy.svg").size(13))));
   }
 
   mediaBox(entry, label, fallback, t, centered) {
@@ -611,12 +638,14 @@ export default class MdView extends View {
             .child(div().text_size(11).child(this.copied ? "Copied" : "Copy path")))))
         .child(div().text_size(11).text_color(t.dim).truncate().child(file ? dirOf(file) : "Ctrl-click a .md path in a terminal")))
       .when(editing && !this.config.autosave && dirty, (e) => e.child(this.button("save", "Save", t, (_e, cx) => this.save(cx), true)))
+      .when(!!this.copyMsg, (e) => e.child(div().text_size(11).text_color(t.accent).child(this.copyMsg)))
       .when(editing && !!saveLabel, (e) => e.child(div().text_size(11).text_color(this.saveState === "conflict" ? t.blocked : t.dim).child(saveLabel)))
       .when(editing, (e) => e.child(this.button("send-sel", "Send selection", t, (_e, cx) => this.sendSelection(cx))))
       .when(!editing && this.changed.length > 0, (e) => e.child(div().id("changed").flex_none().px(8).py(3).rounded(10).cursor_pointer()
         .text_size(11).text_color(t.accent_foreground).bg(t.accent).hover((s) => s.opacity(0.85)).tooltip("Jump to the next change (c)")
         .on_click((_e, cx) => nextChanged(this, cx))
         .child(`${this.changed.length} changed ›`)))
+      .when(!!file && !this.showSettings, (e) => e.child(iconButton("tool-copy", "copy", "Copy the markdown (y)", (_e, cx) => this.copyMarkdown(this.text() ?? "", "Copied the file", cx))))
       .when(!!file && !editing, (e) => e
         .child(iconButton("tool-outline", "outline", "Outline (o)", (_e, cx) => { this.showOutline = !this.showOutline; cx.notify(); }, !!this.showOutline))
         .child(iconButton("tool-find", "search", "Find (/ or Ctrl+F)", (_e, cx) => (this.showFind ? closeFind(this, cx) : openFind(this, cx)), !!this.showFind)))

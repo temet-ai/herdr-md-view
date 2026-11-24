@@ -202,6 +202,7 @@ export function onKey(view, e, cx) {
     return;
   }
   if (k === "ctrl-f" || k === "cmd-f") { openFind(view, cx); return; }
+  if ((k === "ctrl-c" || k === "cmd-c") && view.mode === "view" && !view.showSettings && !view.showFind) { view.copySelectionAsMarkdown(cx); return; }
   if (k === "alt-left") { goHistory(view, -1, cx); return; }
   if (k === "alt-right") { goHistory(view, 1, cx); return; }
   // Single letters only while reading, not while typing in the editor or the find box.
@@ -218,6 +219,7 @@ export function onKey(view, e, cx) {
     o: () => { view.showOutline = !view.showOutline; cx.notify(); },
     c: () => nextChanged(view, cx),
     f: () => openPicker(view, cx),
+    y: () => view.copyMarkdown(view.text() ?? "", "Copied the file", cx),
     e: () => { if (view.config.allow_edit !== false) view.setMode("edit", cx); },
     "[": () => goHistory(view, -1, cx),
     "]": () => goHistory(view, 1, cx),

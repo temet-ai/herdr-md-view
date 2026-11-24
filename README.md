@@ -33,6 +33,7 @@ To install by hand, copy `mods/md-view` into `~/.config/herdr-app/mods/` and run
 - **View, Edit, Split:** the buttons in the panel header. Edit shows the source in Herdr's editor; Split shows the editor above the rendered page.
 - **Save:** edits save on their own 800 ms after you stop typing. Ctrl+S (Cmd+S) saves at once. If another program changes the file while you edit, a banner asks whether to reload from disk or keep your version; nothing is overwritten without that answer.
 - **Send to the terminal:** hover a block or list item and an arrow appears in the left margin. Click it to paste `path:12-14` and those lines, quoted with `>`, into the terminal you clicked from. In Edit and Split, **Send selection** sends the lines you selected. By default the text is pasted without Enter, so you can add your own words before sending it.
+- **Copy as markdown:** select text on the rendered page and press Ctrl+C (Cmd+C): the clipboard gets the markdown it came from, with its bold, code, links and list markers, not the plain text. The copy button in the header (or `y`) copies the whole file, and the copy icon at the right of a hovered block copies that block.
 - **Links:** links to other markdown files open in the panel; web links and other files open with the system's handler.
 - **Jump to a line:** `plan.md:42` opens at line 42 and flashes that block.
 - **Outline:** the outline button (or `o`) lists the headings beside the page; click one to jump to it.
@@ -41,7 +42,7 @@ To install by hand, copy `mods/md-view` into `~/.config/herdr-app/mods/` and run
 - **Back and forward:** after following links between files, the ‹ › arrows, Alt+Left and Alt+Right, or `[` and `]`.
 - **Files the terminal mentioned:** the terminal button (or `f`) lists the markdown files named in the terminal's recent output, newest first. It finds bare names like `plan.md` too, which Herdr doesn't make clickable.
 
-Keys while reading (click the page first): `j`/`k` or the arrows move a block, `g`/`G` go to the top or bottom, `o` outline, `/` find, `c` next change, `f` files from the terminal, `e` edit, Esc closes whatever is open.
+Keys while reading (click the page first): `j`/`k` or the arrows move a block, `g`/`G` go to the top or bottom, `o` outline, `/` find, `c` next change, `f` files from the terminal, `e` edit, `y` copy the file, Esc closes whatever is open.
 - **Settings:** the Settings button in the panel header opens a settings page. Every change saves at once and applies to all open md-view panels.
 
 To open a file without a click:
