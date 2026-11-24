@@ -9,6 +9,13 @@ Sections use these headings, leaving out any with nothing in them: **New**,
 
 ## Unreleased
 
+**New**
+
+- **Send with a note.** The ✎ beside a hovered block opens a box: Enter sends the quote and your note to the terminal together.
+- **Reviews.** "Add to review" collects notes on several blocks; "Send review" sends them as one message, in file order.
+- **Tick task boxes.** Clicking a `- [ ]` box ticks it in the file. The header counts them, such as `3 of 7 done`.
+- **Front matter as a table** of its keys and values, instead of raw text.
+
 ## 0.1.0 (2026-11-24)
 
 The first release.

@@ -195,18 +195,19 @@ export function onKey(view, e, cx) {
   const k = e.keystroke;
   if (k === "ctrl-s" || k === "cmd-s") { view.save(cx); return; }
   if (e.key === "escape") {
-    if (view.showFind) closeFind(view, cx);
+    if (view.noteFor) { view.noteFor = null; view.keys?.focus(); cx.notify(); }
+    else if (view.showFind) closeFind(view, cx);
     else if (view.showPicker) { view.showPicker = false; cx.notify(); }
     else if (view.showSettings) { view.showSettings = false; cx.notify(); }
     else if (view.showOutline) { view.showOutline = false; cx.notify(); }
     return;
   }
   if (k === "ctrl-f" || k === "cmd-f") { openFind(view, cx); return; }
-  if ((k === "ctrl-c" || k === "cmd-c") && view.mode === "view" && !view.showSettings && !view.showFind) { view.copySelectionAsMarkdown(cx); return; }
+  if ((k === "ctrl-c" || k === "cmd-c") && view.mode === "view" && !view.showSettings && !view.showFind && !view.noteFor) { view.copySelectionAsMarkdown(cx); return; }
   if (k === "alt-left") { goHistory(view, -1, cx); return; }
   if (k === "alt-right") { goHistory(view, 1, cx); return; }
   // Single letters only while reading, not while typing in the editor or the find box.
-  if (view.mode !== "view" || view.showSettings || view.showFind) return;
+  if (view.mode !== "view" || view.showSettings || view.showFind || view.noteFor) return;
   const n = view.parsed.blocks.length, at = view.cursor ?? 0;
   const keys = {
     "/": () => openFind(view, cx),

@@ -9,6 +9,8 @@ import { configPath, loadConfig, resolveFont, saveConfig, starterConfig, DEFAULT
 import { settingsPage } from "./settings.js";
 import { cacheImage, renderDiagram } from "./media.js";
 import { markdownFor } from "./copy.js";
+import { noteBox, openNote, reviewBar, toggleTask } from "./review.js";
+import { frontRows, quote, taskCount } from "./review-core.js";
 import { blockAtLine, closeFind, findBar, goHistory, markChanged, nextChanged, onKey, openFind, openPicker, outline, picker, remember, scrollTo, updateMatches } from "./features.js";
 
 const dirOf = (p) => p.slice(0, p.lastIndexOf("/")) || "/";
@@ -152,7 +154,7 @@ export default class MdView extends View {
     if (want.line) this.pendingLine = want.line;
     if (!want.fromHistory) remember(this, want.path);
     if (want.path === this.file) { if (this.pendingLine) this.jumpPending(cx); cx.notify(); return; }
-    this.changed = []; this.cursor = 0; this.showPicker = false;
+    this.changed = []; this.cursor = 0; this.showPicker = false; this.review = []; this.noteFor = null;
     this.file = want.path;
     this.draft = null; this.conflict = false; this.error = null; this.base = ""; this.saveState = null;
     this.parsed = { text: null, blocks: [] };
@@ -322,10 +324,15 @@ export default class MdView extends View {
   }
 
   send(start, end, text, cx) {
+    this.sendBody(quote(this.file, { start, end, text }, "", this.config.send.format), cx);
+  }
+
+  writeFile(file, text, expected) { return writeTextFile(file, text, expected); }
+
+  // Puts `body` into the source terminal: pasted without Enter, or sent through hc.
+  sendBody(body, cx) {
     const to = this.target();
     if (!to) { notify({ title: "md-view", body: "No terminal in this tab to send to.", level: "warning" }); return; }
-    const range = end - start > 1 ? `${start + 1}-${end}` : `${start + 1}`;
-    const body = this.config.send.format === "plain" ? text : `${this.file}:${range}\n${text.split("\n").map((l) => `> ${l}`).join("\n")}`;
     if (this.config.send.mode === "submit") {
       const address = to.machine ? `${to.machine}/${to.terminal}` : to.terminal;
       hc(["send", address, body]).then((r) => { if (r.code !== 0) notify({ title: "md-view", body: r.stderr.trim() || "send failed", level: "error" }); });
@@ -435,17 +442,26 @@ export default class MdView extends View {
   // One row: a send button in the gutter, shown on hover, and the content.
   row(id, start, end, text, content, t) {
     const on = this.hover === id;
-    return h_flex().id(`row-${id}`).w_full().items_start()
+    const noting = this.noteFor?.id === id;
+    const line = h_flex().id(`row-${id}`).w_full().items_start()
       .on_hover((h, cx) => { if (h) this.hover = id; else if (this.hover === id) this.hover = null; cx.notify(); })
       .child(div().id(`send-${id}`).w(22).h(22).flex_none().flex().items_center().cursor_pointer()
         .text_color(t.dim).hover((s) => s.text_color(t.accent))
         .on_click((_e, cx) => this.send(start, end, text, cx))
         .when(on, (e) => e.child(svg("mods/md-view/send.svg").size(14))))
       .child(div().flex_1().min_w(0).child(content))
+      .child(div().id(`note-${id}`).w(22).h(22).flex_none().flex().items_center().justify_center().cursor_pointer()
+        .text_size(13).text_color(t.dim).hover((s) => s.text_color(t.accent)).tooltip("Send with a note, or add it to a review")
+        .on_click((_e, cx) => openNote(this, { id, start, end, text }, cx))
+        .when(on || noting, (e) => e.child("✎")))
       .child(div().id(`copy-${id}`).w(22).h(22).flex_none().flex().items_center().justify_center().cursor_pointer()
         .text_color(t.dim).hover((s) => s.text_color(t.accent)).tooltip("Copy this block's markdown")
         .on_click((_e, cx) => this.copyMarkdown(text, "Copied", cx))
         .when(on, (e) => e.child(svg("mods/md-view/copy.svg").size(13))));
+    const queued = (this.review ?? []).some((r) => r.id === id);
+    return v_flex().w_full()
+      .child(queued ? line.border_r(2).border_color(t.accent) : line)
+      .when(noting, (e) => e.child(noteBox(this, t)));
   }
 
   mediaBox(entry, label, fallback, t, centered) {
@@ -481,7 +497,8 @@ export default class MdView extends View {
           const iid = `${id}-i${k}`;
           const mark = it.task === null
             ? div().w(18).flex_none().text_color(t.dim).child(it.marker)
-            : div().w(18).flex_none().pt(3).child(div().size(12).rounded(3).border(1).border_color(it.task ? t.accent : t.dim).bg(it.task ? t.accent : t.surface)
+            : div().id(`${iid}-box`).w(18).flex_none().pt(3).when(this.config.allow_edit !== false, (e) => e.cursor_pointer().tooltip(it.task ? "Untick" : "Tick").on_click((_e, cx) => toggleTask(this, it.start, cx)))
+              .child(div().size(12).rounded(3).border(1).border_color(it.task ? t.accent : t.dim).bg(it.task ? t.accent : t.surface)
                 .text_size(10).text_color(t.accent_foreground).flex().items_center().justify_center().child(it.task ? "✓" : ""));
           const el = h_flex().pl(it.depth * 18).py(1).items_start().child(mark)
             .child(div().flex_1().min_w(0).child(this.inline(iid, it.inline, t, size, it.task ? t.muted : t.foreground)));
@@ -539,9 +556,14 @@ export default class MdView extends View {
       }
       case "hr":
         return this.row(id, b.start, b.end, b.source, div().my(10).h(1).w_full().bg(t.border), t);
-      case "front":
+      case "front": {
+        const rows = frontRows(b.text);
         return this.row(id, b.start, b.end, b.source,
-          div().my(4).px(10).py(6).rounded(6).bg(t.raised).text_size(12).font_family(settings().font_family).text_color(t.dim).child(b.text.trim()), t);
+          v_flex().my(4).px(10).py(6).gap(2).rounded(6).bg(t.raised).text_size(12).children(rows.map(([k, v]) =>
+            h_flex().gap(10).items_start()
+              .when(!!k, (e) => e.child(div().w(120).flex_none().text_color(t.dim).truncate().child(k)))
+              .child(div().flex_1().min_w(0).text_color(t.foreground).child(v)))), t);
+      }
       case "footnotes":
         return v_flex().mt(10).pt(6).border_t(1).border_color(t.border).gap(2).children(b.notes.map((n, k) =>
           h_flex().gap(6).items_start().pl(22)
@@ -638,6 +660,10 @@ export default class MdView extends View {
             .child(div().text_size(11).child(this.copied ? "Copied" : "Copy path")))))
         .child(div().text_size(11).text_color(t.dim).truncate().child(file ? dirOf(file) : "Ctrl-click a .md path in a terminal")))
       .when(editing && !this.config.autosave && dirty, (e) => e.child(this.button("save", "Save", t, (_e, cx) => this.save(cx), true)))
+      .when(!!file && !editing && taskCount(this.parsed?.blocks ?? []).all > 0, (e) => {
+        const { done, all } = taskCount(this.parsed.blocks);
+        return e.child(div().text_size(11).text_color(done === all ? t.accent : t.dim).tooltip("Tasks ticked").child(`${done} of ${all} done`));
+      })
       .when(!!this.copyMsg, (e) => e.child(div().text_size(11).text_color(t.accent).child(this.copyMsg)))
       .when(editing && !!saveLabel, (e) => e.child(div().text_size(11).text_color(this.saveState === "conflict" ? t.blocked : t.dim).child(saveLabel)))
       .when(editing, (e) => e.child(this.button("send-sel", "Send selection", t, (_e, cx) => this.sendSelection(cx))))
@@ -696,6 +722,7 @@ export default class MdView extends View {
       .on_mouse_down("left", () => { if (this.mode === "view" && !this.showFind) this.keys?.focus(); })
       .child(header)
       .when(!!this.showFind && !this.showSettings, (e) => e.child(findBar(this, t)))
+      .when((this.review?.length ?? 0) > 0 && !this.showSettings, (e) => e.child(reviewBar(this, t)))
       .when(!!this.showPicker && !this.showSettings, (e) => e.child(picker(this, t)))
       .when(!!this.configError, (e) => e.child(banner(`${this.configError}. Using the defaults until it is fixed.`, [])))
       .when(this.conflict, (e) => e.child(banner("The file changed on disk while you were editing.", [

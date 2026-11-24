@@ -9,3 +9,4 @@ cp "$here/../mods/md-view/link.js" "$here/../mods/md-view/config.js" "$here/../m
 cp "$here/settings.test.mjs" "$tmp/"
 cd "$tmp" && MDHOME="$tmp/home" node settings.test.mjs
 node "$here/copy.test.mjs"
+node "$here/review.test.mjs"

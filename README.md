@@ -35,6 +35,8 @@ To install by hand, copy `mods/md-view` into `~/.config/herdr-app/mods/` and run
 - **View, Edit, Split:** the buttons in the panel header. Edit shows the source in Herdr's editor; Split shows the editor above the rendered page.
 - **Save:** edits save on their own 800 ms after you stop typing. Ctrl+S (Cmd+S) saves at once. If another program changes the file while you edit, a banner asks whether to reload from disk or keep your version; nothing is overwritten without that answer.
 - **Send to the terminal:** hover a block or list item and an arrow appears in the left margin. Click it to paste `path:12-14` and those lines, quoted with `>`, into the terminal you clicked from. In Edit and Split, **Send selection** sends the lines you selected. By default the text is pasted without Enter, so you can add your own words before sending it.
+- **Send with a note:** the ✎ beside a hovered block opens a box under it. Type what you want done and press Enter: the quote and your note go to the terminal together. **Add to review** keeps them instead; a bar under the header counts the notes, and **Send review** sends them all as one message, in file order.
+- **Task boxes:** click a `- [ ]` box to tick it (or untick it). The file is saved, and the header shows how many are done, such as `3 of 7 done`. With `allow_edit` off the boxes don't change.
 - **Copy as markdown:** select text on the rendered page and press Ctrl+C (Cmd+C): the clipboard gets the markdown it came from, with its bold, code, links and list markers, not the plain text. The copy button in the header (or `y`) copies the whole file, and the copy icon at the right of a hovered block copies that block.
 - **Links:** links to other markdown files open in the panel; web links and other files open with the system's handler.
 - **Jump to a line:** `plan.md:42` opens at line 42 and flashes that block.
@@ -55,7 +57,7 @@ herdr-app do tab.new '{"mod":"md-view","props":{"file":"/path/to/notes.md"}}'
 
 ## What it renders
 
-Headings, paragraphs with bold, italic, strikethrough, inline code and links; bullet, numbered and task lists with nesting; quotes; GitHub callouts (`> [!NOTE]`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`); fenced code with syntax highlighting and a Copy button; tables with column alignment; images (local, relative to the file, or https); footnotes; front matter; horizontal rules.
+Headings, paragraphs with bold, italic, strikethrough, inline code and links; bullet, numbered and task lists with nesting; quotes; GitHub callouts (`> [!NOTE]`, `TIP`, `IMPORTANT`, `WARNING`, `CAUTION`); fenced code with syntax highlighting and a Copy button; tables with column alignment; images (local, relative to the file, or https); footnotes; front matter, as a small table of its keys and values; horizontal rules.
 
 Charts are fenced blocks marked `chart`:
 
