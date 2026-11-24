@@ -144,7 +144,8 @@ export default class MdView extends View {
         if (this.file !== file) return;
         const text = await readTextFile(file);
         if (this.file !== file) return;
-        const first = this.parsed.text === null;
+        const first = this.loadedFor !== file; // the first read of this file is not a change
+        if (text != null) this.loadedFor = file;
         const oldBlocks = this.parsed.blocks;
         let fromDisk = false;
         if (text == null) this.error = "Can't read this file: it is missing, bigger than 1 MiB, or not text.";
@@ -537,7 +538,9 @@ export default class MdView extends View {
       const y = (v) => 8 + (1 - v / max) * 84;
       // paint_path needs absolute coordinates, so the plot measures itself first.
       const W = this.plotW?.[id] ?? 0;
-      const px = (k) => (x(k) / 100) * W, py = (v) => (y(v) / 100) * H;
+      // on_size_change reports the width with the app's zoom in it; paint_path wants it without.
+      const z = 1 / (settings().zoom ?? 1);
+      const px = (k) => (x(k) / 100) * W * z, py = (v) => (y(v) / 100) * H;
       let plot = div().id(`plot-${id}`).relative().w_full().h(H)
         .on_size_change((size, cx) => { (this.plotW ??= {})[id] = size.width; cx.notify(); });
       if (W > 0) {
