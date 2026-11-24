@@ -1,0 +1,10 @@
+{
+  "name": "md-view-renderers",
+  "private": true,
+  "description": "Optional renderers for the md-view Herdr mod: Mermaid diagrams and TeX maths.",
+  "type": "module",
+  "dependencies": {
+    "@mermaid-js/mermaid-cli": "^12.2.0",
+    "mathjax-full": "^3.2.1"
+  }
+}
